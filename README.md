@@ -2,8 +2,8 @@
 
 A modern flight booking application with advanced route optimization and real-time pricing. Built with **React**, **Express**, and **PostgreSQL**, SkyBooker delivers intelligent routing, dynamic fare computation, and interactive user experiences.
 
-![SkyBooker – Interactive Flight Booking Interface](https://drive.google.com/file/d/1LHOlSXonDpNrv1PIoklN0aojRfj7jFhr/view?usp=sharing)
-
+![SkyBooker – Interactive Flight Booking Interface](/img/one.png)
+![SkyBooker – Interactive Flight Booking Interface](/img/two.png)
 ---
 
 ## 🚀 Features
