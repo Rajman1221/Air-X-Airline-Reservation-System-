@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
-console.log('Step 1: Starting script');
+console.log('Step 1: Starting enhanced seed script');
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..', '..');
@@ -64,66 +64,188 @@ for (const airport of airports) {
   }
 }
 
-console.log('Step 9: Creating flight routes');
+console.log('Step 9: Creating comprehensive flight route network');
 
 // Create a map of airports for easy lookup
 const airportMap = new Map(airports.map(a => [a.code, a]));
 
-// Define major routes between Indian cities
-const routes = [
-  // Delhi connections
+// Enhanced route definitions - ensuring full connectivity
+// Major hubs with comprehensive connections
+const hubRoutes = [
+  // Delhi (DEL) - National capital, connects to all
   ["DEL", "BOM"], ["DEL", "BLR"], ["DEL", "HYD"], ["DEL", "MAA"], 
-  ["DEL", "CCU"], ["DEL", "PNQ"], ["DEL", "AMD"], ["DEL", "COK"],
+  ["DEL", "CCU"], ["DEL", "PNQ"], ["DEL", "AMD"], ["DEL", "COK"], ["DEL", "GOI"],
   
-  // Mumbai connections  
+  // Mumbai (BOM) - Financial capital, connects to all
   ["BOM", "BLR"], ["BOM", "HYD"], ["BOM", "MAA"], ["BOM", "CCU"],
   ["BOM", "PNQ"], ["BOM", "GOI"], ["BOM", "AMD"], ["BOM", "COK"],
   
-  // Bangalore connections
+  // Bangalore (BLR) - Tech hub, good connectivity
   ["BLR", "HYD"], ["BLR", "MAA"], ["BLR", "CCU"], ["BLR", "COK"],
-  ["BLR", "GOI"], 
+  ["BLR", "GOI"], ["BLR", "PNQ"], ["BLR", "AMD"],
   
-  // Hyderabad connections
-  ["HYD", "MAA"], ["HYD", "CCU"], ["HYD", "COK"],
+  // Chennai (MAA) - South India hub
+  ["MAA", "HYD"], ["MAA", "CCU"], ["MAA", "COK"], ["MAA", "BLR"], 
+  ["MAA", "GOI"], ["MAA", "PNQ"],
   
-  // Chennai connections
-  ["MAA", "CCU"], ["MAA", "COK"],
+  // Hyderabad (HYD) - Central connectivity
+  ["HYD", "CCU"], ["HYD", "COK"], ["HYD", "GOI"], ["HYD", "AMD"], ["HYD", "PNQ"],
   
-  // Other connections
-  ["CCU", "COK"], ["PNQ", "GOI"], ["AMD", "COK"]
+  // Kolkata (CCU) - Eastern hub
+  ["CCU", "COK"], ["CCU", "GOI"], ["CCU", "AMD"], ["CCU", "PNQ"],
+  
+  // Regional connections
+  ["PNQ", "GOI"], ["PNQ", "AMD"], ["PNQ", "COK"], // Pune connections
+  ["GOI", "AMD"], ["GOI", "COK"], // Goa connections
+  ["AMD", "COK"], // Ahmedabad to Kochi
 ];
 
-for (const [from, to] of routes) {
+// Additional secondary routes for better network density
+const secondaryRoutes = [
+  // Cross-regional routes for algorithm testing
+  ["MAA", "AMD"], // Chennai to Ahmedabad
+  ["CCU", "GOI"], // Kolkata to Goa
+  ["HYD", "PNQ"], // Hyderabad to Pune
+  ["BLR", "AMD"], // Bangalore to Ahmedabad
+];
+
+// Combine all routes
+const allRoutes = [...hubRoutes, ...secondaryRoutes];
+
+console.log(`Creating ${allRoutes.length} bidirectional route pairs (${allRoutes.length * 2} total routes)`);
+
+let createdRoutes = 0;
+let existingRoutes = 0;
+let failedRoutes = 0;
+
+for (const [from, to] of allRoutes) {
   const fromAirport = airportMap.get(from);
   const toAirport = airportMap.get(to);
   
-  if (fromAirport && toAirport) {
-    const distance = haversineKm(
-      fromAirport.lat, fromAirport.lon,
-      toAirport.lat, toAirport.lon
-    );
-    
-    // Create bidirectional routes
-    for (const [source, dest] of [[from, to], [to, from]]) {
-      try {
-        console.log(`Creating route: ${source} → ${dest} (${Math.round(distance)} km)`);
-        await storage.createRoute({
-          from: source,
-          to: dest,
-          distanceKm: distance,
-          active: true
-        });
-        console.log(`Created route: ${source} → ${dest}`);
-      } catch (error: any) {
-        if (error.code === '23505') {
-          console.log(`Route already exists: ${source} → ${dest}`);
-        } else {
-          console.error(`Error creating route ${source} → ${dest}:`, error);
-        }
+  if (!fromAirport || !toAirport) {
+    console.error(`Airport not found: ${from} or ${to}`);
+    failedRoutes++;
+    continue;
+  }
+  
+  const distance = haversineKm(
+    fromAirport.lat, fromAirport.lon,
+    toAirport.lat, toAirport.lon
+  );
+  
+  // Create bidirectional routes
+  for (const [source, dest] of [[from, to], [to, from]]) {
+    try {
+      await storage.createRoute({
+        from: source,
+        to: dest,
+        distanceKm: distance,
+        active: true
+      });
+      console.log(`✓ Created route: ${source} → ${dest} (${Math.round(distance)} km)`);
+      createdRoutes++;
+    } catch (error: any) {
+      if (error.code === '23505') {
+        console.log(`- Route already exists: ${source} → ${dest}`);
+        existingRoutes++;
+      } else {
+        console.error(`✗ Error creating route ${source} → ${dest}:`, error.message);
+        failedRoutes++;
       }
     }
   }
 }
 
-console.log('Step 10: Seeding complete');
+console.log('\nStep 10: Route creation summary');
+console.log(`- Created: ${createdRoutes} new routes`);
+console.log(`- Existing: ${existingRoutes} routes already existed`);
+console.log(`- Failed: ${failedRoutes} routes failed to create`);
+console.log(`- Total expected: ${allRoutes.length * 2} bidirectional routes`);
+
+// Verify route connectivity
+console.log('\nStep 11: Verifying route connectivity');
+try {
+  const allCreatedRoutes = await storage.getActiveRoutes();
+  console.log(`- Database contains ${allCreatedRoutes.length} active routes`);
+  
+  // Check if each airport has connections
+  const connectivityCheck = new Map();
+  airports.forEach(airport => {
+    const outgoingRoutes = allCreatedRoutes.filter(r => r.from === airport.code);
+    const incomingRoutes = allCreatedRoutes.filter(r => r.to === airport.code);
+    connectivityCheck.set(airport.code, {
+      outgoing: outgoingRoutes.length,
+      incoming: incomingRoutes.length,
+      total: outgoingRoutes.length + incomingRoutes.length
+    });
+    console.log(`- ${airport.code}: ${outgoingRoutes.length} outgoing, ${incomingRoutes.length} incoming`);
+  });
+  
+  // Find airports with no connections (problematic)
+  const unconnectedAirports = airports.filter(airport => {
+    const connectivity = connectivityCheck.get(airport.code);
+    return connectivity.total === 0;
+  });
+  
+  if (unconnectedAirports.length > 0) {
+    console.warn('⚠️  Airports with no connections:', unconnectedAirports.map(a => a.code));
+  } else {
+    console.log('✅ All airports have connections');
+  }
+  
+} catch (error) {
+  console.error('Error verifying connectivity:', error);
+}
+
+// Create or update price configuration
+console.log('\nStep 12: Setting up price configuration');
+try {
+  const priceConfig = {
+    baseRate: 4.5, // ₹4.5 per km base rate
+    fuelSurcharge: 0.15, // 15% fuel surcharge
+    taxes: 0.12, // 12% taxes
+    markups: {
+      Saver: 1.0, // No markup for saver
+      Standard: 1.25, // 25% markup for standard
+      Flex: 1.6 // 60% markup for flex
+    },
+    demandMultipliers: {
+      low: 0.8, // 20% discount during low demand
+      medium: 1.0, // No adjustment for medium demand
+      high: 1.4 // 40% premium during high demand
+    },
+    minimumFare: 2000 // Minimum fare of ₹2000
+  };
+  
+  await storage.updatePriceConfig(priceConfig);
+  console.log('✅ Price configuration updated');
+} catch (error) {
+  console.error('Error updating price configuration:', error);
+}
+
+console.log('\n🎉 Step 13: Enhanced seeding complete');
+console.log('The flight network is now fully connected and ready for route computation!');
+
+// Test a sample route to verify everything works
+console.log('\nStep 14: Testing route computation...');
+try {
+  const { computeRoute } = await import("../services/graph.js");
+  const testAirports = await storage.getAllAirports();
+  const testRoutes = await storage.getActiveRoutes();
+  
+  // Test CCU to DEL (the route that was failing)
+  const testResult = await computeRoute(testAirports, testRoutes, "CCU", "DEL", "dijkstra");
+  
+  if (testResult) {
+    console.log('✅ Test route computation successful:');
+    console.log(`- Path: ${testResult.path.join(' → ')}`);
+    console.log(`- Distance: ${testResult.totalDistance.toFixed(1)} km`);
+    console.log(`- Segments: ${testResult.segments.length}`);
+  } else {
+    console.log('❌ Test route computation failed');
+  }
+} catch (error) {
+  console.error('Error testing route computation:', error);
+}
+
 process.exit(0);

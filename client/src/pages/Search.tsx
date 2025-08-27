@@ -137,7 +137,7 @@ export default function SearchPage() {
                   Algorithm
                 </label>
                 <Select value={algorithm} onValueChange={setAlgorithm}>
-                  <SelectTrigger>
+                  <SelectTrigger className="text-gray-900">
                     <SelectValue placeholder="Select algorithm" />
                   </SelectTrigger>
                   <SelectContent>
@@ -211,17 +211,19 @@ export default function SearchPage() {
                 </div>
               </div>
 
+              
               {/* Map */}
-              <RouteMap
-                airports={airports}
-                path={hasValidRoute ? route.path : []}
-                segments={
-                  hasValidRoute ? (route.segments as RouteSegment[]) : []
-                }
-                algorithm={algorithm}
-                totalDistance={hasValidRoute ? route.totalDistance : 0}
-                className="h-96"
-              />
+{searchTriggered && hasValidRoute && (
+  <RouteMap
+    airports={airports}
+    path={route.path}
+    segments={route.segments as RouteSegment[]}
+    algorithm={algorithm}
+    totalDistance={route.totalDistance}
+    className="h-96"
+  />
+)}
+
 
               {error && (
                 <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -284,7 +286,7 @@ export default function SearchPage() {
               )}
 
               {/* Flight Offers */}
-              {hasValidRoute && offers.length > 0 && (
+              {searchTriggered && hasValidRoute && offers.length >0 && (
                 <div className="space-y-4">
                   {offers.map((offer) => (
                     <div

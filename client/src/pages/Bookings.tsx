@@ -8,15 +8,34 @@ import { socketService } from "@/lib/socket";
 import { Booking } from "@/types";
 import { CheckCircle, FileText, Download, Calendar, Plane } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/api";  // ✅ added import
 
 export default function BookingsPage() {
   const { toast } = useToast();
 
-  // ✅ Fixed query: fetch bookings from API
-  const { data: bookings = [], isLoading } = useQuery<Booking[]>({
-    queryKey: ["bookings"],
-    queryFn: () => apiRequest("get", "/bookings"),
+  // Fixed query: use consistent API approach with error handling
+  const { data: bookings = [], isLoading, error } = useQuery<Booking[]>({
+    queryKey: ["/api/bookings"],
+    queryFn: async () => {
+      const response = await fetch("/api/bookings", {
+        credentials: "include",
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Unauthorized");
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      // Ensure we always return an array
+      return Array.isArray(data) ? data : [];
+    },
+    retry: (failureCount, error) => {
+      // Don't retry on auth errors
+      if (error.message === "Unauthorized") return false;
+      return failureCount < 3;
+    },
   });
 
   useEffect(() => {
@@ -36,6 +55,36 @@ export default function BookingsPage() {
       socketService.off("booking:created", handleBookingCreated);
     };
   }, [toast]);
+
+  // Handle error states
+  if (error) {
+    return (
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-12">
+          <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <FileText className="w-12 h-12 text-red-400" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Error Loading Bookings
+          </h3>
+          <p className="text-gray-600 mb-6">
+            {error.message === "Unauthorized" 
+              ? "Please log in to view your bookings" 
+              : "Unable to load bookings. Please try again later."}
+          </p>
+          {error.message === "Unauthorized" ? (
+            <Link href="/login">
+              <Button>Sign In</Button>
+            </Link>
+          ) : (
+            <Button onClick={() => window.location.reload()}>
+              Retry
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -61,7 +110,7 @@ export default function BookingsPage() {
         <p className="text-gray-600 mt-2">Manage your flight reservations</p>
       </div>
 
-      {bookings.length === 0 ? (
+      {!Array.isArray(bookings) || bookings.length === 0 ? (
         // Empty State
         <div className="text-center py-12">
           <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -163,7 +212,7 @@ export default function BookingsPage() {
       )}
 
       {/* Recent Activity */}
-      {bookings.length > 0 && (
+      {Array.isArray(bookings) && bookings.length > 0 && (
         <div className="mt-12">
           <h2 className="text-xl font-semibold text-gray-900 mb-6">
             Recent Activity
